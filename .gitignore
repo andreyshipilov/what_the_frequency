@@ -1,0 +1,16 @@
+# default
+*.pyc
+*.pyo
+*.db
+*.mo
+*.po
+.DS_Store
+.coverage
+
+# virtualenv dirs
+Scripts
+Include
+Lib
+
+# app specific
+app/wav
