@@ -1,0 +1,4 @@
+PyAudio==0.2.7
+colorama==0.2.7
+pep8==1.4.6
+pyflakes==0.7.3

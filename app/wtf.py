@@ -9,7 +9,7 @@ import wave
 
 import pyaudio
 from colorama import Fore, init as colorama_init
-colorama_init()
+colorama_init(autoreset=True)
 
 
 # Audio settings
