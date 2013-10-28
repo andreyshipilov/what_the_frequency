@@ -13,4 +13,4 @@ Include
 Lib
 
 # app specific
-app/wav
+app/audio
