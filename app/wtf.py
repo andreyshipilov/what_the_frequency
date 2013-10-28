@@ -30,8 +30,11 @@ SHORT_NORMALIZE = 1.0/32768.0
 THRESHOLD = 130
 
 # Timeout in minutes before record start.
-RECORD_DELAY_FROM = 1 if DEBUG else 10
-RECORD_DELAY_TO = 2 if DEBUG else 20
+RECORD_DELAY_FROM = 2 if DEBUG else 10 * 60
+RECORD_DELAY_TO = 5 if DEBUG else 20 * 60
+
+# Record cycle delay.
+RECORD_DELAY_PERIOD = 0.1 if DEBUG else 60
 
 # How many minutes to record.
 RECORD_LENGTH = 5 if DEBUG else 60 * 5
@@ -77,12 +80,12 @@ class WTF(object):
                         THRESHOLD, datetime.now()))
                     timeout_minutes = randrange(RECORD_DELAY_FROM,
                                                 RECORD_DELAY_TO)
-                    print("You guys keep playing, \
-                          I'll wait for {0} minutes.".format(timeout_minutes))
+                    print("You guys keep playing, " +
+                          "I'll wait for {0} minutes.".format(timeout_minutes))
 
                     for minute in xrange(0, timeout_minutes):
                         print("{0}. ".format(minute + 1), end="")
-                        time.sleep(.1)
+                        time.sleep(RECORD_DELAY_PERIOD)
 
                     print("\nYep, let's record that.[{0}]".format(
                         datetime.now()))
