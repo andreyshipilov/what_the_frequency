@@ -11,9 +11,10 @@ import time
 import wave
 
 import pyaudio
-from processing import create_wave_images, convert_to_mp3
 from colorama import Fore, init as colorama_init
 colorama_init(autoreset=True)
+
+from processing import create_wave_images, convert_to_mp3
 
 
 # Reset some settings if Debugging.
