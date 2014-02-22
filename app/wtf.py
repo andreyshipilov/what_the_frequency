@@ -91,9 +91,9 @@ class WTF(object):
                     print("I'll try to save it. [{0}]".format(datetime.now()))
                     self.save_audio(audio_data)
 
-                    #print("Gonna make some pictures now. [{0}]".format(
-                    #    datetime.now()))
-                    #self.create_waveform_images()
+                    print("Gonna make some pictures now. [{0}]".format(
+                        datetime.now()))
+                    self.create_waveform_images()
 
                     print("Let's convert the WAV to MP3. [{0}]".\
                           format(datetime.now()))
