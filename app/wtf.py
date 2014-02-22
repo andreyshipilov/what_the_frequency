@@ -1,24 +1,15 @@
 #!/usr/bin/env python
 from __future__ import print_function
 from datetime import datetime
-from math import pow
-from os import makedirs
-from os.path import abspath, join, dirname, exists
-from random import randrange
-import struct
+from os.path import abspath, join, dirname
 import sys
-import time
-import wave
 
 import pyaudio
 from colorama import Fore, init as colorama_init
 colorama_init(autoreset=True)
 
-from processing import create_wave_images, convert_to_mp3
-
-
 # Reset some settings if Debugging.
-DEBUG = True
+DEBUG = True if 'debug' in sys.argv else False
 
 # Audio settings
 CHUNK = 1024
@@ -28,24 +19,24 @@ RATE = 44100
 SHORT_NORMALIZE = 1.0/32768.0
 
 # Minimum treshold (RMS) to reach to start the record.
-THRESHOLD = 130
+THRESHOLD = 350
 
 # Timeout in minutes before record start.
-RECORD_DELAY_FROM = 2 if DEBUG else 10 * 60
-RECORD_DELAY_TO = 5 if DEBUG else 20 * 60
+RECORD_DELAY_FROM = 2 if DEBUG else 1
+RECORD_DELAY_TO = 5 if DEBUG else 5
 
 # Record cycle delay.
 RECORD_DELAY_PERIOD = 0.1 if DEBUG else 60
 
-# How many minutes to record.
-RECORD_LENGTH = 5 if DEBUG else 60 * 5
+# How many seconds to record.
+RECORD_LENGTH = 1 if DEBUG else 60
 
 # Colors for RMS terminal output.
 RMS_COLORS = {
-    '0': Fore.WHITE,
-    '1': Fore.GREEN,
-    '2': Fore.YELLOW,
-    '3': Fore.RED
+    "0": Fore.WHITE,
+    "1": Fore.GREEN,
+    "2": Fore.YELLOW,
+    "3": Fore.RED
 }
 
 # Directory to save audio files in.
@@ -63,11 +54,13 @@ class WTF(object):
             input=True,
             frames_per_buffer=CHUNK
         )
-        self.current_file_name = ""
-        self.current_file_dir = ""
-        self.latest_wav_file_path = ""
+        self.current_file_name = self.current_file_dir = ""
+        self.latest_wav_file_path = self.latest_mp3_file_path = ""
 
     def run(self):
+        if DEBUG:
+            print(Fore.RED + "We're in debug mode btw!")
+
         print("Let's start. [{0}]\n".format(datetime.now()))
 
         try:
@@ -76,8 +69,11 @@ class WTF(object):
                 rms_value = self.get_rms(input)
                 self.draw_eq(rms_value, THRESHOLD)
 
-                if (rms_value > THRESHOLD):
-                    print(Fore.GREEN + "\nWow, loud as hell! [{1}]".format(
+                if rms_value > THRESHOLD:
+                    import time
+                    from random import randrange
+
+                    print(Fore.GREEN + "\nOk, loud as hell! [{1}]".format(
                         THRESHOLD, datetime.now()))
                     timeout_minutes = randrange(RECORD_DELAY_FROM,
                                                 RECORD_DELAY_TO)
@@ -95,17 +91,26 @@ class WTF(object):
                     print("I'll try to save it. [{0}]".format(datetime.now()))
                     self.save_audio(audio_data)
 
-                    print("Gonna make some pictures now. [{0}]".format(
-                        datetime.now()))
-                    self.create_waveform_images()
+                    #print("Gonna make some pictures now. [{0}]".format(
+                    #    datetime.now()))
+                    #self.create_waveform_images()
+
+                    print("Let's convert the WAV to MP3. [{0}]".\
+                          format(datetime.now()))
+                    self.convert_wav_to_mp3()
+
+                    print("Uploading the masterpiece to SoundColud. [{0}]".\
+                          format(datetime.now()))
+                    self.upload_to_soundcloud()
 
                     print("\n" + "_" * 79)
-        except:
-            pass
+        except Exception as e:
+            print(e)
 
     @staticmethod
     def draw_eq(rms, maximum):
         """Draws textual equalizer. A bit flaky but, meh."""
+
         level = (rms * 79 / maximum)
         color = RMS_COLORS.get(str(int(level * 3 / 79)), '4')
         # Yes, the next line draws a penis.
@@ -116,9 +121,10 @@ class WTF(object):
     @staticmethod
     def get_rms(frame):
         """Returns RMS for a given frame of sound."""
+        import struct
+
         count = len(frame) / 2
-        format = "%dh" % (count)
-        shorts = struct.unpack(format, frame)
+        shorts = struct.unpack("%dh" % (count), frame)
         sum_squares = 0.0
         for sample in shorts:
             n = sample * SHORT_NORMALIZE
@@ -146,7 +152,11 @@ class WTF(object):
         file_path = join(file_dir, file_name + ".wav")
 
         if audio_data:
+            from os.path import exists
+            import wave
+
             if not exists(file_dir):
+                from os import makedirs
                 makedirs(file_dir)
             print("I'll put the file here:")
             print(file_path)
@@ -165,6 +175,8 @@ class WTF(object):
 
     def create_waveform_images(self):
         """Creates waveform and spectrum analyzed images."""
+        from app.processing import create_wave_images
+
         file_name = join(self.current_file_dir, self.current_file_name)
         waveform_path = "{0}_waveform.png".format(file_name)
         spectrum_path = "{0}_spectrum.jpg".format(file_name)
@@ -176,13 +188,29 @@ class WTF(object):
         print(spectrum_path)
 
     def convert_wav_to_mp3(self):
-        """TODO: Converts WAV file to MP3."""
-        # convert_to_mp3()
-        pass
+        """Converts WAV file to MP3."""
+        from app.processing import convert_to_mp3
+        from os.path import splitext
+
+        self.latest_mp3_file_path = splitext(self.latest_wav_file_path)[0] + ".mp3"
+        convert_to_mp3(self.latest_wav_file_path, self.latest_mp3_file_path)
 
     def upload_to_soundcloud(self):
-        """TODO: Uploads MP3 to SoundCloud."""
-        pass
+        """Uploads MP3 to SoundCloud."""
+        import soundcloud
+        from secrets import CLIENT_ID, CLIENT_SECRET, USERNAME, PASSWORD
+
+        client = soundcloud.Client(
+            client_id=CLIENT_ID,
+            client_secret=CLIENT_SECRET,
+            username=USERNAME,
+            password=PASSWORD
+        )
+        client.post('/tracks', track={
+            'title': datetime.now().strftime('%d %B, %Y'),
+            'asset_data': open(self.latest_mp3_file_path, 'rb')
+        })
+
 
     def post_to_twitter(self):
         """TODO: Creates a Twitter post with a SoundCloud link."""
@@ -195,6 +223,5 @@ class WTF(object):
         self.pyaudio_obj.terminate()
 
 
-"""Start the app."""
 if __name__ == "__main__":
     WTF().run()

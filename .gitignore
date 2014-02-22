@@ -14,3 +14,4 @@ Lib
 
 # app specific
 app/audio
+app/secrets.py
