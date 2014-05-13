@@ -34,8 +34,8 @@ THRESHOLD = 200
 RECORD_DELAY_FROM = 2 if DEBUG else 1
 RECORD_DELAY_TO = 5 if DEBUG else 5
 
-# Record cycle delay.
-RECORD_DELAY_PERIOD = 0.1 if DEBUG else 60
+# Minute length for easier debug.
+MINUTE_LENGTH = 0.1 if DEBUG else 60
 
 # How many seconds to record.
 RECORD_LENGTH = 1 if DEBUG else 30
@@ -59,7 +59,7 @@ class AudioProcessingException(Exception):
 
 
 class WTF(object):
-    """Main class"""
+    """Main class."""
 
     def __init__(self):
         """Create PyAudio instance. Open audio stream."""
@@ -76,7 +76,7 @@ class WTF(object):
         self.latest_wav_file_path = self.latest_mp3_file_path = ""
 
     def run(self):
-        """Main method"""
+        """Main method."""
         if DEBUG:
             print(Fore.RED + "We're in debug mode btw!")
 
@@ -103,13 +103,12 @@ class WTF(object):
 
                 for minute in xrange(0, timeout_minutes):
                     print("{0}. ".format(minute + 1), end="")
-                    time.sleep(RECORD_DELAY_PERIOD)
+                    time.sleep(MINUTE_LENGTH)
 
                 print("\nYep, let's record that.[{0}]".format(
                     datetime.now()))
 
                 audio_data = self.record_audio(RECORD_LENGTH)
-                self.terminate_stream()
 
                 print("I'll try to save it. [{0}]".format(datetime.now()))
                 self.save_audio(audio_data)
@@ -118,11 +117,19 @@ class WTF(object):
                       format(datetime.now()))
                 self.convert_wav_to_mp3()
 
-                print("Uploading the masterpiece to SoundColud. [{0}]".
-                      format(datetime.now()))
-                self.upload_to_soundcloud()
+                if not DEBUG:
+                    print("Uploading the masterpiece to SoundColud. [{0}]".
+                          format(datetime.now()))
+                    self.upload_to_soundcloud()
 
-                print("\n" + "_" * 79)
+                    print("Now I'm going to sleep for 24 hours. [{0}]".format(
+                        datetime.now()))
+                    for hour in xrange(1, 25):
+                        print("{0} [{1}]".format(str(25-hour), datetime.now()))
+                        # Sleep for an hour.
+                        time.sleep(MINUTE_LENGTH * 60)
+
+                print(Fore.GREEN + "All done! [{0}]\n".format(datetime.now()))
 
     @staticmethod
     def draw_eq(rms, maximum):
@@ -130,7 +137,7 @@ class WTF(object):
         level = (rms * 79 / maximum)
         color = RMS_COLORS.get(str(int(level * 3 / 79)), '4')
         # Yes, the next line draws a penis.
-        sys.stdout.write(color + "\r8=" + "=" * (level - 3) + "0" + Fore.BLACK
+        sys.stdout.write(color + "\r8=" + "=" * (level - 3) + "o" + Fore.BLACK
                          + " " * (79 - level))
         sys.stdout.flush()
 
@@ -178,7 +185,7 @@ class WTF(object):
                 from os import makedirs
                 makedirs(file_dir)
             print("I'll put the file here:")
-            print(file_path)
+            print(">>> {0}". format(file_path))
             wave_file = wave.open(file_path, 'wb')
             wave_file.setnchannels(CHANNELS)
             wave_file.setsampwidth(self.pyaudio_obj.get_sample_size(FORMAT))
