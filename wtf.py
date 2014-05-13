@@ -14,12 +14,12 @@ DEBUG = True if 'debug' in sys.argv else False
 # Audio settings
 CHUNK = 1024
 FORMAT = pyaudio.paInt16
-CHANNELS = 2
+CHANNELS = 1
 RATE = 44100
 SHORT_NORMALIZE = 1.0/32768.0
 
 # Minimum treshold (RMS) to reach to start the record.
-THRESHOLD = 350
+THRESHOLD = 200
 
 # Timeout in minutes before record start.
 RECORD_DELAY_FROM = 2 if DEBUG else 1
@@ -29,7 +29,7 @@ RECORD_DELAY_TO = 5 if DEBUG else 5
 RECORD_DELAY_PERIOD = 0.1 if DEBUG else 60
 
 # How many seconds to record.
-RECORD_LENGTH = 1 if DEBUG else 60
+RECORD_LENGTH = 30 if DEBUG else 30
 
 # Colors for RMS terminal output.
 RMS_COLORS = {
@@ -42,6 +42,9 @@ RMS_COLORS = {
 # Directory to save audio files in.
 AUDIO_DIRECTORY = join(abspath(dirname(__file__)), "audio")
 
+class AudioProcessingException(Exception):
+    pass
+
 
 class WTF(object):
     def __init__(self):
@@ -52,7 +55,8 @@ class WTF(object):
             channels=CHANNELS,
             rate=RATE,
             input=True,
-            frames_per_buffer=CHUNK
+            frames_per_buffer=CHUNK,
+            input_device_index=1,
         )
         self.current_file_name = self.current_file_dir = ""
         self.latest_wav_file_path = self.latest_mp3_file_path = ""
@@ -65,7 +69,10 @@ class WTF(object):
 
         try:
             while True:
-                input = self.stream.read(CHUNK)
+                try:
+                    input = self.stream.read(CHUNK)
+                except IOError:
+                    input = '\x00' * CHUNK
                 rms_value = self.get_rms(input)
                 self.draw_eq(rms_value, THRESHOLD)
 
@@ -86,14 +93,12 @@ class WTF(object):
 
                     print("\nYep, let's record that.[{0}]".format(
                         datetime.now()))
+
                     audio_data = self.record_audio(RECORD_LENGTH)
+                    self.terminate_stream()
 
                     print("I'll try to save it. [{0}]".format(datetime.now()))
                     self.save_audio(audio_data)
-
-                    print("Gonna make some pictures now. [{0}]".format(
-                        datetime.now()))
-                    self.create_waveform_images()
 
                     print("Let's convert the WAV to MP3. [{0}]".\
                           format(datetime.now()))
@@ -138,7 +143,10 @@ class WTF(object):
         if seconds:
             frames = []
             for i in xrange(0, int(RATE / CHUNK * seconds)):
-                frames.append(self.stream.read(CHUNK))
+                try:
+                    frames.append(self.stream.read(CHUNK))
+                except IOError:
+                    frames.append('\x00' * CHUNK)
             print("Ok, seems like I've recorded something.")
             return b''.join(frames)
         else:
@@ -173,27 +181,21 @@ class WTF(object):
         else:
             print(Fore.RED + "Should I save nothing? That's stupid.")
 
-    def create_waveform_images(self):
-        """Creates waveform and spectrum analyzed images."""
-        from app.processing import create_wave_images
-
-        file_name = join(self.current_file_dir, self.current_file_name)
-        waveform_path = "{0}_waveform.png".format(file_name)
-        spectrum_path = "{0}_spectrum.jpg".format(file_name)
-        create_wave_images(self.latest_wav_file_path,
-                           waveform_path,
-                           spectrum_path,
-                           2000, 501, 1024)
-        print("Done. I've saved waveform and spectrum here:")
-        print(spectrum_path)
-
     def convert_wav_to_mp3(self):
         """Converts WAV file to MP3."""
-        from app.processing import convert_to_mp3
-        from os.path import splitext
+        import subprocess
+        from os.path import splitext, exists
 
         self.latest_mp3_file_path = splitext(self.latest_wav_file_path)[0] + ".mp3"
-        convert_to_mp3(self.latest_wav_file_path, self.latest_mp3_file_path)
+        if not exists(self.latest_wav_file_path):
+            raise AudioProcessingException, "file %s does not exist" % self.latest_wav_file_path
+
+        command = ["lame", "--silent", "--abr", str(75), self.latest_wav_file_path, self.latest_mp3_file_path]
+        process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        (stdout, stderr) = process.communicate()
+
+        if process.returncode != 0 or not exists(self.latest_mp3_file_path):
+            raise AudioProcessingException, stdout
 
     def upload_to_soundcloud(self):
         """Uploads MP3 to SoundCloud."""
@@ -208,9 +210,12 @@ class WTF(object):
         )
         client.post('/tracks', track={
             'title': datetime.now().strftime('%d %B, %Y'),
-            'asset_data': open(self.latest_mp3_file_path, 'rb')
+            'asset_data': open(self.latest_mp3_file_path, 'rb'),
+            'genre': 'Live',
+            'track_type': 'live',
+            'tag_list': 'live demo jam',
+            'downloadable': True
         })
-
 
     def post_to_twitter(self):
         """TODO: Creates a Twitter post with a SoundCloud link."""

@@ -13,5 +13,5 @@ Include
 Lib
 
 # app specific
-app/audio
-app/secrets.py
+audio
+secrets.py
