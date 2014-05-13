@@ -16,6 +16,7 @@ import sys
 import pyaudio
 from colorama import Fore, init as colorama_init
 colorama_init(autoreset=True)
+from secrets import SOUND_CLOUD, TWITTER
 
 # Reset some settings if Debugging.
 DEBUG = True if 'debug' in sys.argv else False
@@ -72,8 +73,9 @@ class WTF(object):
             frames_per_buffer=CHUNK,
             input_device_index=1,
         )
-        self.current_file_name = self.current_file_dir = ""
-        self.latest_wav_file_path = self.latest_mp3_file_path = ""
+        self.current_file_name = self.current_file_dir = None
+        self.latest_wav_file_path = self.latest_mp3_file_path = None
+        self.latest_uploaded_track = None
 
     def run(self):
         """Main method."""
@@ -121,6 +123,11 @@ class WTF(object):
                     print("Uploading the masterpiece to SoundColud. [{0}]".
                           format(datetime.now()))
                     self.upload_to_soundcloud()
+
+                    #TODO: Fix Twitter.
+                    #print("Tweeting the masterpiece to everyone. [{0}]".
+                    #      format(datetime.now()))
+                    #self.post_to_twitter()
 
                     print("Now I'm going to sleep for 24 hours. [{0}]".format(
                         datetime.now()))
@@ -228,15 +235,14 @@ class WTF(object):
     def upload_to_soundcloud(self):
         """Uploads MP3 to SoundCloud."""
         import soundcloud
-        from secrets import CLIENT_ID, CLIENT_SECRET, USERNAME, PASSWORD
 
         client = soundcloud.Client(
-            client_id=CLIENT_ID,
-            client_secret=CLIENT_SECRET,
-            username=USERNAME,
-            password=PASSWORD
+            client_id=SOUND_CLOUD['id'],
+            client_secret=SOUND_CLOUD['secret'],
+            username=SOUND_CLOUD['username'],
+            password=SOUND_CLOUD['password']
         )
-        client.post('/tracks', track={
+        self.latest_uploaded_track = client.post('/tracks', track={
             'title': datetime.now().strftime('%d %B, %Y'),
             'asset_data': open(self.latest_mp3_file_path, 'rb'),
             'genre': 'Live',
@@ -244,6 +250,21 @@ class WTF(object):
             'tag_list': 'live demo jam',
             'downloadable': True
         })
+
+    def post_to_twitter(self):
+        """Posts a tweet to Twitter"""
+        if self.latest_uploaded_track:
+            import tweepy
+
+            auth = tweepy.OAuthHandler(
+                TWITTER['consumer_key'],
+                TWITTER['consumer_secret'])
+            auth.set_access_token(
+                TWITTER['access_token'],
+                TWITTER['access_token_secret'])
+            api = tweepy.API(auth)
+            api.update_status("{0} #what_the_frequency".format(
+                self.latest_uploaded_track.permalink_url))
 
     def terminate_stream(self):
         """Stop the stream, terminate PyAudio."""
